@@ -21,7 +21,7 @@ A Keras implementation of YOLOv3 (Tensorflow backend) inspired by [allanzelener/
 
 ```
 wget https://pjreddie.com/media/files/yolov3.weights
-python convert.py yolov3.cfg yolov3.weights yolo.h5
+python convert.py yolov3.cfg yolov3.weights ./weights/yolo.h5
 python realtime-single-cam.py
 python realtime-multi-cam.py
 ```

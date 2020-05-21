@@ -6,6 +6,7 @@ import time
 import cv2, threading
 import numpy as np
 from numpy import expand_dims
+from time import gmtime, strftime
 
 
 
@@ -246,29 +247,6 @@ class VideoGetCamA:
     def stop(self):
         self.stopped = True
 
-class VideoGetCamB:
-    """
-    Class that continuously gets frames from a VideoCapture object
-    with a dedicated thread.
-    """
-    def __init__(self):
-        self.stream = cv2.VideoCapture("rtsp://192.168.123.154:554/11") # Set to 1 for front camera
-        (self.grabbed, self.frame) = self.stream.read()
-        self.stopped = False
-
-    def start(self):    
-        Thread(target=self.get, args=()).start()
-        return self
-
-    def get(self):
-        while not self.stopped:
-            if not self.grabbed:
-                self.stop()
-            else:
-                (self.grabbed, self.frame) = self.stream.read()
-
-    def stop(self):
-        self.stopped = True
 
 def make_prediction151(frame):
 	#print("Predict151")
@@ -280,28 +258,19 @@ def make_prediction151(frame):
 		#print("Put yhat into the queue")
 		yhat_queue151.put_nowait(yhat)
 
-def make_prediction154(frame):
-	#print("Predict154")
-	img = Image.fromarray(frame)
-	image = img.resize(size=(416, 416))
-	image = preprocess_image_data(image)   
-	yhat = model.predict(image)
-	if yhat_queue154.empty():
-		#print("Put yhat into the queue")
-		yhat_queue154.put_nowait(yhat)
 
 print('Loading network...')
 #graph = tf.compat.v1.get_default_graph() 
 #model = load_model('yolo-tiny.h5')
-model = load_model('yolo.h5')
+model = load_model('./weights/yolo.h5')
 print('Network loaded successfully!')
 #model._make_predict_function()
 times = []
 yhat_queue151 = Queue(maxsize=10000)
-yhat_queue154 = Queue(maxsize=10000)
+
 #Start the video capture loop
 video_getterA = VideoGetCamA().start()
-video_getterB = VideoGetCamB().start()
+
 
 
 while True:
@@ -312,8 +281,6 @@ while True:
 	
 
 	drawframe1=video_getterA.frame
-	drawframe2=video_getterB.frame
-
 	image_h, image_w = drawframe1.shape[:2]
 
 	if yhat_queue151.empty():
@@ -328,44 +295,21 @@ while True:
 		correct_yolo_boxes(boxes, image_h, image_w, input_h, input_w)
 		do_nms(boxes, 0.5)
 		v_boxes, v_labels, v_scores = get_boxes(boxes, labels, class_threshold) 
-		for i in range(len(v_boxes)):
-			print("Predict151", v_labels[i], v_scores[i])
 		akdraw(drawframe1, v_boxes, v_labels, v_scores)
 		timeB = time.time()
 		times.append(timeB-timeA)
 		times = times[-20:]
 		cv2.putText(drawframe1, "Time: {:.2f}ms".format(sum(times)/len(times)*1000), (0, 30),cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
-	
-	if yhat_queue154.empty():
-		make_prediction154(drawframe2)
-		continue
-	else:
-		yhatPred = yhat_queue154.get(block=False, timeout=None)
-		boxes = list()
-		for i in range(len(yhatPred)):
-			boxes += decode_netout(yhatPred[i][0], anchors[i], class_threshold, input_h, input_w)
-		t1 = time.time()
-		correct_yolo_boxes(boxes, image_h, image_w, input_h, input_w)
-		do_nms(boxes, 0.5)
-		v_boxes, v_labels, v_scores = get_boxes(boxes, labels, class_threshold) 
 		for i in range(len(v_boxes)):
-			print("Predict:", v_labels[i], v_scores[i])
-		akdraw(drawframe2, v_boxes, v_labels, v_scores)
-		timeB = time.time()
-		times.append(timeB-timeA)
-		times = times[-20:]
-		cv2.putText(drawframe2, "Time: {:.2f}ms".format(sum(times)/len(times)*1000), (0, 30),cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (0, 0, 255), 2)
-
-
-
-		numpy_horizontal = np.hstack((drawframe1, drawframe2))
-		imS = cv2.resize(numpy_horizontal, (1800, 700))
+			if v_labels[i] is not "":
+				print("Predict: ", strftime("%Y-%m-%d-%H-%M-%S", gmtime()), v_labels[i], v_scores[i])
+				cv2.imwrite('./auto-cap/capture-'+strftime("%Y-%m-%d-%H-%M-%S", gmtime())+'.jpg', drawframe1)
+		imS = cv2.resize(drawframe1, (1800, 1000))
 		cv2.imshow("predict", imS)
-		print("---------------------------")
-		print("")
+		#print("---------------------------")
+		#print("")
 		if cv2.waitKey(1) == ord("q"):
 			break      
 	
 video_getterA.stop()
-video_getterB.stop()
 cv2.destroyAllWindows()
