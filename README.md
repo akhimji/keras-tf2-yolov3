@@ -1,6 +1,5 @@
 # Keras-TF2-YOLOv3
-Keras  with Tensorflow2 - YOLOv3 - Best on GPU 
-Tested with 
+Keras  with Tensorflow2 - YOLOv3 
 
 [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](LICENSE)
 
